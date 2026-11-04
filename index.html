@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTT-PLAYER MASX CLONE</title>
-    <!-- Исправленное и точное подключение библиотеки видео-движка -->
+    <title>OttPlayer Personal Widget</title>
     <script src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; background-color: #141414; color: #fff; font-family: Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; }
@@ -36,7 +35,6 @@
     </div>
 
     <script>
-        // Все ссылки восстановлены в исходном виде с вашим токеном доступа
         const RAW_PLAYLIST = [
             { n: "Первый канал UHD", g: "новости", u: "http://rossteleccom.net" },
             { n: "Россия 1 UHD", g: "новости", u: "http://rossteleccom.net" },
@@ -119,14 +117,17 @@
         }
 
         function playStream(url) {
+            // Пропускаем видеопоток через CORS-прокси для обхода ограничений Mixed Content
+            const secureUrl = 'https://allorigins.win' + encodeURIComponent(url);
+
             if (Hls.isSupported()) {
                 if (hls) hls.destroy();
                 hls = new Hls();
-                hls.loadSource(url);
+                hls.loadSource(secureUrl);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
+                video.src = secureUrl;
                 video.addEventListener('loadedmetadata', () => video.play());
             } else {
                 alert('Формат не поддерживается');
