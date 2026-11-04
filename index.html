@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My VIDAA IPTV Player</title>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body { margin: 0; background-color: #141414; color: #fff; font-family: Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; }
+        #sidebar { width: 300px; background: #1f1f1f; border-right: 2px solid #333; display: flex; flex-direction: column; z-index: 10; }
+        .header-box { padding: 15px; background: #292929; text-align: center; font-weight: bold; border-bottom: 1px solid #444;}
+        #playlist-input-box { padding: 10px; display: flex; flex-direction: column; gap: 5px;}
+        input, button, select { background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #channels-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .channel-item { padding: 12px 20px; border-bottom: 1px solid #2a2a2a; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
+        .channel-item:hover, .channel-item.active { background: #0056b3; }
+        #video-container { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <div class="header-box">VIDAA IPTV PLAYER</div>
+        <div id="playlist-input-box">
+            <select id="preset-playlists" onchange="selectPreset(this.value)">
+                <option value="">-- Выбрать готовый плейлист --</option>
+                <option value="https://github.io">Free RU TV (Sample)</option>
+            </select>
+            <input type="text" id="playlist-url" placeholder="Вставьте ссылку на .m3u8/.m3u">
+            <button onclick="loadPlaylist()">Загрузить/Обновить</button>
+        </div>
+        <ul id="channels-list"></ul>
+    </div>
+    <div id="video-container">
+        <video id="video" controls autoplay playsinline></video>
+    </div>
+    <script>
+        const video = document.getElementById('video');
+        let hls = null;
+        window.onload = function() {
+            const savedUrl = localStorage.getItem('vidaa_playlist_url');
+            if (savedUrl) {
+                document.getElementById('playlist-url').value = savedUrl;
+                loadPlaylist(savedUrl);
+            }
+        };
+        function selectPreset(url) {
+            if(url) {
+                document.getElementById('playlist-url').value = url;
+                loadPlaylist(url);
+            }
+        }
+        async function loadPlaylist(forcedUrl = null) {
+            const url = forcedUrl || document.getElementById('playlist-url').value;
+            if (!url) return alert('Введите ссылку!');
+            localStorage.setItem('vidaa_playlist_url', url);
+            const listContainer = document.getElementById('channels-list');
+            listContainer.innerHTML = '<li class="channel-item">Загрузка каналов...</li>';
+            try {
+                const proxyUrl = 'https://allorigins.win' + encodeURIComponent(url);
+                const response = await fetch(proxyUrl);
+                const data = await response.text();
+                parseM3U(data);
+            } catch (error) {
+                listContainer.innerHTML = '<li class="channel-item" style="color:red">Ошибка загрузки.</li>';
+            }
+        }
+        function parseM3U(data) {
+            const lines = data.split('\n');
+            const listContainer = document.getElementById('channels-list');
+            listContainer.innerHTML = '';
+            let currentName = '';
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('#EXTINF:')) {
+                    const parts = line.split(',');
+                    currentName = parts[parts.length - 1] || 'Без названия';
+                } else if (line.startsWith('http')) {
+                    const streamUrl = line;
+                    const li = document.createElement('li');
+                    li.className = 'channel-item';
+                    li.innerText = currentName || 'Канал';
+                    li.onclick = () => {
+                        document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+                        li.classList.add('active');
+                        playStream(streamUrl);
+                    };
+                    listContainer.appendChild(li);
+                    currentName = '';
+                }
+            });
+        }
+        function playStream(url) {
+            if (Hls.isSupported()) {
+                if (hls) hls.destroy();
+                hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => video.play());
+            } else {
+                alert('Этот формат видео не поддерживается вашим ТВ');
+            }
+        }
+    </script>
+</body>
+</html>
