@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OTT-play FOSS Personal Light</title>
-    <!-- Правильное и полное подключение видео-движка HLS -->
+    <!-- Полная и абсолютно точная ссылка на видео-движок -->
     <script src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; background-color: #0b0b0c; color: #e1e1e3; font-family: 'Segoe UI', Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; }
@@ -68,13 +68,20 @@
             updateStatus('Загрузка потоков...');
 
             try {
-                // Обход блокировок чтения файлов на некоторых устройствах
-                const proxyUrl = 'https://allorigins.win' + encodeURIComponent(url);
-                const response = await fetch(proxyUrl);
+                // Чистый и прямой запрос к провайдеру без ломающих прокси
+                const response = await fetch(url, { mode: 'cors' });
                 const data = await response.text();
                 parseM3U(data);
             } catch (error) {
-                alert('Ошибка сети при загрузке ссылки. Попробуйте загрузить сохраненный плейлист файлом.');
+                // Если телефон/ТВ блокируют запрос из-за HTTPS, используем альтернативный легкий текстовый шлюз
+                try {
+                    const altProxy = 'https://corsproxy.io/?' + encodeURIComponent(url);
+                    const response = await fetch(altProxy);
+                    const data = await response.text();
+                    parseM3U(data);
+                } catch (e) {
+                    updateStatus('Не удалось загрузить ссылку. Пожалуйста, используйте загрузку плейлиста ФАЙЛОМ.');
+                }
             }
         }
 
@@ -161,26 +168,17 @@
         }
 
         function playStream(url) {
-            // Исправление блокировки Mixed Content (автозамена протоколов при необходимости)
-            if (window.location.protocol === 'https:' && url.startsWith('http://') && !url.includes('rossteleccom.net')) {
-                url = url.replace('http://', 'https://');
-            }
-
             if (typeof Hls !== 'undefined' && Hls.isSupported()) {
                 if (hls) hls.destroy();
-                hls = new Hls({
-                    xhrSetup: function(xhr, url) {
-                        xhr.withCredentials = false; // Отключаем куки для совместимости со старыми ТВ
-                    }
-                });
+                hls = new Hls();
                 hls.loadSource(url);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => video.controls = true));
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
                 video.addEventListener('loadedmetadata', () => video.play());
             } else {
-                alert('Плеер не поддерживается типом прошивки вашего ТВ.');
+                alert('Формат не поддерживается прошивкой.');
             }
         }
     </script>
