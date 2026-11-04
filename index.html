@@ -3,109 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My VIDAA IPTV Player</title>
+    <title>OttPlayer FOSS Personal Widget</title>
     <script src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; background-color: #141414; color: #fff; font-family: Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; }
-        #sidebar { width: 300px; background: #1f1f1f; border-right: 2px solid #333; display: flex; flex-direction: column; z-index: 10; }
-        .header-box { padding: 15px; background: #292929; text-align: center; font-weight: bold; border-bottom: 1px solid #444;}
-        #playlist-input-box { padding: 10px; display: flex; flex-direction: column; gap: 5px;}
-        input, button, select { background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        #sidebar { width: 320px; background: #1f1f1f; border-right: 2px solid #333; display: flex; flex-direction: column; z-index: 10; }
+        .header-box { padding: 15px; background: #292929; text-align: center; font-weight: bold; border-bottom: 1px solid #444; font-size: 18px; color: #0088cc; }
+        .nav-box { padding: 10px; background: #222; border-bottom: 1px solid #333; display: flex; gap: 5px; }
+        select { flex: 1; background: #333; color: white; border: 1px solid #555; padding: 8px; border-radius: 4px; cursor: pointer; }
         #channels-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
-        .channel-item { padding: 12px 20px; border-bottom: 1px solid #2a2a2a; cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
-        .channel-item:hover, .channel-item.active { background: #0056b3; }
+        .channel-item { padding: 12px 20px; border-bottom: 1px solid #2a2a2a; cursor: pointer; display: flex; align-items: center; transition: 0.15s; font-size: 14px; }
+        .channel-item:hover, .channel-item.active { background: #0056b3; color: #fff; font-weight: bold; }
         #video-container { flex: 1; position: relative; background: #000; display: flex; justify-content: center; align-items: center; }
         video { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
 <body>
+
     <div id="sidebar">
-        <div class="header-box">VIDAA IPTV PLAYER</div>
-        <div id="playlist-input-box">
-            <select id="preset-playlists" onchange="selectPreset(this.value)">
-                <option value="">-- Выберите плейлист --</option>
-                <option value="MY_PROVIDER">Мой Плейлист (Автообновление)</option>
-                <option value="https://github.io">Free RU TV (Sample)</option>
+        <div class="header-box">OTT-PLAYER WIDGET</div>
+        <div class="nav-box">
+            <select id="category-select" onchange="filterCategory(this.value)">
+                <option value="ALL">-- Все категории --</option>
             </select>
-            <input type="text" id="playlist-url" placeholder="Вставьте ссылку на .m3u8/.m3u">
-            <button onclick="loadPlaylist()">Загрузить/Обновить</button>
         </div>
         <ul id="channels-list"></ul>
     </div>
+
     <div id="video-container">
         <video id="video" controls autoplay playsinline></video>
     </div>
+
     <script>
+        // Ваш персональный оптимизированный список каналов прямо в коде
+        const RAW_PLAYLIST = [
+            { n: "Первый канал UHD", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Россия 1 UHD", g: "новости", u: "http://rossteleccom.net" },
+            { n: "НТВ UHD", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Крик ТВ HD", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Sky Sports News HD 50 UK", g: "новости", u: "http://rossteleccom.net" },
+            { n: "РБК HD 50", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Первый канал", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Россия 1", g: "новости", u: "http://rossteleccom.net" },
+            { n: "Россия 24", g: "новости", u: "http://rossteleccom.net" },
+            { n: "РЕН ТВ UHD", g: "кино", u: "http://rossteleccom.net" },
+            { n: "VF Сериалы Турции", g: "кино", u: "http://rossteleccom.net" },
+            { n: "9-1-1 HD", g: "кино", u: "http://rossteleccom.net" },
+            { n: "Viju TV1000 Русское", g: "кино", u: "http://rossteleccom.net" },
+            { n: "Кинохит", g: "кино", u: "http://rossteleccom.net" },
+            { n: "Amedia Premium", g: "кино", u: "http://rossteleccom.net" },
+            { n: "1HD Music Television HD", g: "музыка", u: "http://rossteleccom.net" },
+            { n: "Europa Plus TV HD", g: "музыка", u: "http://rossteleccom.net" },
+            { n: "МУЗ-ТВ", g: "музыка", u: "http://rossteleccom.net" },
+            { n: "Шансон ТВ", g: "музыка", u: "http://rossteleccom.net" },
+            { n: "Карусель HD", g: "детские", u: "http://rossteleccom.net" },
+            { n: "Nickelodeon HD", g: "детские", u: "http://rossteleccom.net" },
+            { n: "Мульт HD", g: "детские", u: "http://rossteleccom.net" },
+            { n: "ТНТ UHD", g: "развлекательные", u: "http://rossteleccom.net" },
+            { n: "Пятница! HD", g: "развлекательные", u: "http://rossteleccom.net" },
+            { n: "СТС HD", g: "развлекательные", u: "http://rossteleccom.net" },
+            { n: "1+1 Україна HD UA", g: "українські", u: "http://rossteleccom.net" },
+            { n: "Новий Канал HD UA", g: "українські", u: "http://rossteleccom.net" },
+            { n: "Moldova 1 HD MD", g: "moldovenească", u: "http://rossteleccom.net" },
+            { n: "Jurnal TV HD MD", g: "moldovenească", u: "http://rossteleccom.net" }
+        ];
+
         const video = document.getElementById('video');
         let hls = null;
 
-        // Вшиваем вашу ссылку (заменяем http на https для обхода блокировок браузера)
-        const MY_PRIVATE_PLAYLIST_URL = "https://mylistbest.net";
-
         window.onload = function() {
-            document.getElementById('preset-playlists').value = "MY_PROVIDER";
-            loadPlaylist("MY_PROVIDER");
+            buildCategories();
+            filterCategory('ALL');
         };
 
-        function selectPreset(url) {
-            if(url) loadPlaylist(url);
+        function buildCategories() {
+            const select = document.getElementById('category-select');
+            const groups = new Set();
+            RAW_PLAYLIST.forEach(item => { if(item.g) groups.add(item.g); });
+            groups.forEach(group => {
+                const opt = document.createElement('option');
+                opt.value = group;
+                opt.innerText = group.toUpperCase();
+                select.appendChild(opt);
+            });
         }
 
-        async function loadPlaylist(forcedUrl = null) {
-            let url = forcedUrl || document.getElementById('playlist-url').value;
-            if (!url) return alert('Выберите или введите ссылку!');
-            
-            if (url === "MY_PROVIDER") {
-                url = MY_PRIVATE_PLAYLIST_URL;
-                document.getElementById('playlist-url').value = url;
-            } else {
-                document.getElementById('playlist-url').value = url;
-            }
-            
-            localStorage.setItem('vidaa_playlist_url', url);
-            const listContainer = document.getElementById('channels-list');
-            listContainer.innerHTML = '<li class="channel-item">Загрузка каналов...</li>';
-            
-            try {
-                // Используем стабильный CORS-прокси
-                const proxyUrl = 'https://allorigins.win' + encodeURIComponent(url);
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error('Network error');
-                const data = await response.text();
-                parseM3U(data);
-            } catch (error) {
-                listContainer.innerHTML = '<li class="channel-item" style="color:red">Ошибка загрузки. Провайдер блокирует запросы.</li>';
-            }
-        }
-
-        function parseM3U(data) {
-            const lines = data.split('\n');
+        function filterCategory(category) {
             const listContainer = document.getElementById('channels-list');
             listContainer.innerHTML = '';
-            let currentName = '';
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.startsWith('#EXTINF:')) {
-                    const parts = line.split(',');
-                    currentName = parts[parts.length - 1] || 'Без названия';
-                } else if (line.startsWith('http')) {
-                    const streamUrl = line;
-                    const li = document.createElement('li');
-                    li.className = 'channel-item';
-                    li.innerText = currentName || 'Канал';
-                    li.onclick = () => {
-                        document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-                        li.classList.add('active');
-                        playStream(streamUrl);
-                    };
-                    listContainer.appendChild(li);
-                    currentName = '';
-                }
+
+            const filtered = category === 'ALL' 
+                ? RAW_PLAYLIST 
+                : RAW_PLAYLIST.filter(item => item.g === category);
+
+            filtered.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'channel-item';
+                li.innerText = item.n;
+                li.onclick = () => {
+                    document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
+                    li.classList.add('active');
+                    playStream(item.u);
+                };
+                listContainer.appendChild(li);
             });
-            if(listContainer.children.length === 0) {
-                listContainer.innerHTML = '<li class="channel-item" style="color:yellow">Плейлист пуст или не распознан.</li>';
-            }
         }
 
         function playStream(url) {
@@ -119,7 +120,7 @@
                 video.src = url;
                 video.addEventListener('loadedmetadata', () => video.play());
             } else {
-                alert('Этот формат видео не поддерживается');
+                alert('Формат видео не поддерживается вашим устройством');
             }
         }
     </script>
