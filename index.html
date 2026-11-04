@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OttPlayer FOSS Personal Widget</title>
+    <title>OTT-PLAYER MASX CLONE</title>
     <script src="https://jsdelivr.net"></script>
     <style>
         body { margin: 0; background-color: #141414; color: #fff; font-family: Arial, sans-serif; overflow: hidden; display: flex; height: 100vh; }
@@ -27,7 +27,9 @@
                 <option value="ALL">-- Все категории --</option>
             </select>
         </div>
-        <ul id="channels-list"></ul>
+        <ul id="channels-list">
+            <li class="channel-item">Загрузка плейлиста...</li>
+        </ul>
     </div>
 
     <div id="video-container">
@@ -35,57 +37,61 @@
     </div>
 
     <script>
-        // Ваш персональный оптимизированный список каналов прямо в коде
-        const RAW_PLAYLIST = [
-            { n: "Первый канал UHD", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Россия 1 UHD", g: "новости", u: "http://rossteleccom.net" },
-            { n: "НТВ UHD", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Крик ТВ HD", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Sky Sports News HD 50 UK", g: "новости", u: "http://rossteleccom.net" },
-            { n: "РБК HD 50", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Первый канал", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Россия 1", g: "новости", u: "http://rossteleccom.net" },
-            { n: "Россия 24", g: "новости", u: "http://rossteleccom.net" },
-            { n: "РЕН ТВ UHD", g: "кино", u: "http://rossteleccom.net" },
-            { n: "VF Сериалы Турции", g: "кино", u: "http://rossteleccom.net" },
-            { n: "9-1-1 HD", g: "кино", u: "http://rossteleccom.net" },
-            { n: "Viju TV1000 Русское", g: "кино", u: "http://rossteleccom.net" },
-            { n: "Кинохит", g: "кино", u: "http://rossteleccom.net" },
-            { n: "Amedia Premium", g: "кино", u: "http://rossteleccom.net" },
-            { n: "1HD Music Television HD", g: "музыка", u: "http://rossteleccom.net" },
-            { n: "Europa Plus TV HD", g: "музыка", u: "http://rossteleccom.net" },
-            { n: "МУЗ-ТВ", g: "музыка", u: "http://rossteleccom.net" },
-            { n: "Шансон ТВ", g: "музыка", u: "http://rossteleccom.net" },
-            { n: "Карусель HD", g: "детские", u: "http://rossteleccom.net" },
-            { n: "Nickelodeon HD", g: "детские", u: "http://rossteleccom.net" },
-            { n: "Мульт HD", g: "детские", u: "http://rossteleccom.net" },
-            { n: "ТНТ UHD", g: "развлекательные", u: "http://rossteleccom.net" },
-            { n: "Пятница! HD", g: "развлекательные", u: "http://rossteleccom.net" },
-            { n: "СТС HD", g: "развлекательные", u: "http://rossteleccom.net" },
-            { n: "1+1 Україна HD UA", g: "українські", u: "http://rossteleccom.net" },
-            { n: "Новий Канал HD UA", g: "українські", u: "http://rossteleccom.net" },
-            { n: "Moldova 1 HD MD", g: "moldovenească", u: "http://rossteleccom.net" },
-            { n: "Jurnal TV HD MD", g: "moldovenească", u: "http://rossteleccom.net" }
-        ];
-
         const video = document.getElementById('video');
         let hls = null;
+        let allChannels = [];
+
+        // Ссылка на ваш оригинальный самообновляемый плейлист
+        const M3U_URL = "http://mylistbest.net";
 
         window.onload = function() {
-            buildCategories();
-            filterCategory('ALL');
+            fetchPlaylist();
         };
 
-        function buildCategories() {
-            const select = document.getElementById('category-select');
+        async function fetchPlaylist() {
+            try {
+                // Прямой обход CORS блокировок через самый быстрый прокси
+                const proxyUrl = 'https://allorigins.win' + encodeURIComponent(M3U_URL);
+                const response = await fetch(proxyUrl);
+                const data = await response.text();
+                parseM3U(data);
+            } catch (error) {
+                document.getElementById('channels-list').innerHTML = '<li class="channel-item" style="color:red">Ошибка сети. Попробуйте обновить страницу.</li>';
+            }
+        }
+
+        function parseM3U(data) {
+            const lines = data.split('\n');
             const groups = new Set();
-            RAW_PLAYLIST.forEach(item => { if(item.g) groups.add(item.g); });
+            allChannels = [];
+            
+            let currentName = '';
+            let currentGroup = 'другие';
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('#EXTINF:')) {
+                    const parts = line.split(',');
+                    currentName = parts[parts.length - 1] || 'Без названия';
+                } else if (line.startsWith('#EXTGRP:')) {
+                    currentGroup = line.replace('#EXTGRP:', '').trim();
+                } else if (line.startsWith('http')) {
+                    allChannels.push({ n: currentName || 'Канал', g: currentGroup, u: line });
+                    if(currentGroup) groups.add(currentGroup);
+                    currentName = ''; // Сброс
+                }
+            });
+
+            // Строим категории в меню
+            const select = document.getElementById('category-select');
             groups.forEach(group => {
                 const opt = document.createElement('option');
                 opt.value = group;
                 opt.innerText = group.toUpperCase();
                 select.appendChild(opt);
             });
+
+            filterCategory('ALL');
         }
 
         function filterCategory(category) {
@@ -93,8 +99,8 @@
             listContainer.innerHTML = '';
 
             const filtered = category === 'ALL' 
-                ? RAW_PLAYLIST 
-                : RAW_PLAYLIST.filter(item => item.g === category);
+                ? allChannels 
+                : allChannels.filter(item => item.g === category);
 
             filtered.forEach(item => {
                 const li = document.createElement('li');
@@ -120,7 +126,7 @@
                 video.src = url;
                 video.addEventListener('loadedmetadata', () => video.play());
             } else {
-                alert('Формат видео не поддерживается вашим устройством');
+                alert('Формат не поддерживается');
             }
         }
     </script>
