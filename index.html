@@ -24,7 +24,8 @@
         <div class="header-box">VIDAA IPTV PLAYER</div>
         <div id="playlist-input-box">
             <select id="preset-playlists" onchange="selectPreset(this.value)">
-                <option value="">-- Выбрать готовый плейлист --</option>
+                <option value="">-- Выберите плейлист --</option>
+                <option value="MY_PROVIDER">Мой Плейлист (Автообновление)</option>
                 <option value="https://github.io">Free RU TV (Sample)</option>
             </select>
             <input type="text" id="playlist-url" placeholder="Вставьте ссылку на .m3u8/.m3u">
@@ -38,34 +39,46 @@
     <script>
         const video = document.getElementById('video');
         let hls = null;
+
+        // Вшиваем вашу ссылку (заменяем http на https для обхода блокировок браузера)
+        const MY_PRIVATE_PLAYLIST_URL = "https://mylistbest.net";
+
         window.onload = function() {
-            const savedUrl = localStorage.getItem('vidaa_playlist_url');
-            if (savedUrl) {
-                document.getElementById('playlist-url').value = savedUrl;
-                loadPlaylist(savedUrl);
-            }
+            document.getElementById('preset-playlists').value = "MY_PROVIDER";
+            loadPlaylist("MY_PROVIDER");
         };
+
         function selectPreset(url) {
-            if(url) {
-                document.getElementById('playlist-url').value = url;
-                loadPlaylist(url);
-            }
+            if(url) loadPlaylist(url);
         }
+
         async function loadPlaylist(forcedUrl = null) {
-            const url = forcedUrl || document.getElementById('playlist-url').value;
-            if (!url) return alert('Введите ссылку!');
+            let url = forcedUrl || document.getElementById('playlist-url').value;
+            if (!url) return alert('Выберите или введите ссылку!');
+            
+            if (url === "MY_PROVIDER") {
+                url = MY_PRIVATE_PLAYLIST_URL;
+                document.getElementById('playlist-url').value = url;
+            } else {
+                document.getElementById('playlist-url').value = url;
+            }
+            
             localStorage.setItem('vidaa_playlist_url', url);
             const listContainer = document.getElementById('channels-list');
             listContainer.innerHTML = '<li class="channel-item">Загрузка каналов...</li>';
+            
             try {
+                // Используем стабильный CORS-прокси
                 const proxyUrl = 'https://allorigins.win' + encodeURIComponent(url);
                 const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Network error');
                 const data = await response.text();
                 parseM3U(data);
             } catch (error) {
-                listContainer.innerHTML = '<li class="channel-item" style="color:red">Ошибка загрузки.</li>';
+                listContainer.innerHTML = '<li class="channel-item" style="color:red">Ошибка загрузки. Провайдер блокирует запросы.</li>';
             }
         }
+
         function parseM3U(data) {
             const lines = data.split('\n');
             const listContainer = document.getElementById('channels-list');
@@ -90,7 +103,11 @@
                     currentName = '';
                 }
             });
+            if(listContainer.children.length === 0) {
+                listContainer.innerHTML = '<li class="channel-item" style="color:yellow">Плейлист пуст или не распознан.</li>';
+            }
         }
+
         function playStream(url) {
             if (Hls.isSupported()) {
                 if (hls) hls.destroy();
@@ -102,7 +119,7 @@
                 video.src = url;
                 video.addEventListener('loadedmetadata', () => video.play());
             } else {
-                alert('Этот формат видео не поддерживается вашим ТВ');
+                alert('Этот формат видео не поддерживается');
             }
         }
     </script>
